@@ -63,8 +63,54 @@ if ($targetRepoType -eq 1) {
     $s3CompCopyJob = $backupCopyTarget | ForEach-Object {Get-VBRBackupRepository -Name $_ | Where -Property Type -eq AmazonS3Compatible}
 
     if ($s3CompCopyJob) {
-        Write-Host "Existing S3 Copy Job exists. Exiting."
-        Exit
+        Write-Host "Existing S3 Copy Job exists. Making sure all backup jobs are added."
+        Get=VBRJob
+### CHAT GPT TO ADD MISSING BACKUP JOBS
+
+        # Import the Veeam PowerShell Snap-in
+Add-PSSnapin -Name VeeamPSSnapIn
+
+# Set the name of the backup copy job
+$backupCopyJobName = "MyBackupCopyJob"
+
+# Get all backup jobs and the backup copy job object
+$backupJobs = Get-VBRJob | Where-Object { $_.JobType -eq "Backup" }
+$backupCopyJob = Get-VBRJob -Name $backupCopyJobName
+
+# Array to store missing backup jobs
+$missingJobs = @()
+
+# Check if each backup job is included in the backup copy job
+foreach ($backupJob in $backupJobs) {
+    $isIncluded = $backupCopyJob.GetObjectsInJob() | Where-Object { $_.JobName -eq $backupJob.Name }
+
+    if (-not $isIncluded) {
+        $missingJobs += $backupJob.Name
+    }
+}
+
+# Add missing backup jobs to the backup copy job
+if ($missingJobs.Count -gt 0) {
+    foreach ($missingJob in $missingJobs) {
+        # Create a new VBRViEntity object for the missing backup job
+        $backupJobEntity = New-VBRViEntity -Type JobObject -Name $missingJob
+
+        # Add the backup job entity to the backup copy job
+        $backupCopyJob.AddObjectToJob($backupJobEntity)
+    }
+
+    # Save the changes to the backup copy job
+    $backupCopyJob | Set-VBRJob -WhatIf
+}
+
+# Output the result
+if ($missingJobs.Count -gt 0) {
+    Write-Output "The following backup jobs were missing and have been added to the backup copy job '$backupCopyJobName':"
+    $missingJobs | ForEach-Object { Write-Output $_ }
+} else {
+    Write-Output "All backup jobs are already included in the backup copy job '$backupCopyJobName'."
+}
+
     }   
 
     $targetRepository = Get-VBRBackupRepository |Where -Property Type -eq AmazonS3Compatible
