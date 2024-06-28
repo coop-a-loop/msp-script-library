@@ -300,7 +300,8 @@ Write-Log "INFO: Upgrade logs for this script can be found here: $logFile"
 
 # Pending reboot check
 if (Test-PendingReboot) {
-    throw "This Windows server requires a reboot prior to beginning the Veeam Backup & Replication upgrade. After rebooting this server, you can proceed with the upgrade."
+    Write-Log "This Windows server requires a reboot prior to beginning the Veeam Backup & Replication upgrade. The BDR will restart now."
+	Restart-Computer
 }
 
 # Enforcing absolute paths
@@ -740,6 +741,6 @@ if ($vbr) {
 
 Write-Log "Unmounting Veeam ISO"
 Dismount-DiskImage -ImagePath $iso
-Write-Log "Script has completed successfully. Please reboot this server prior to using Veeam."
-Write-Host "This can be done easily in PowerShell as well: Restart-Computer -Force"
+Write-Log "Script has completed successfully. BDR will now Restart."
+Restart-Computer -Force
 return 0
