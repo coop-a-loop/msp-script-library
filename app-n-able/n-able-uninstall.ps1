@@ -34,26 +34,14 @@ if ($rmm -ne 1) {
 
 Start-Transcript -Path $logPath
 
-# Define service names to check
-$ServiceNames = @("MspAgent", "Windows Agent Service")
+# Define exact service name
+$ServiceName = "MspAgent"
 
-# Track if any services were found
-$ServiceFound = $false
-$ServicesToProcess = @()
+# Get service with exact match
+$Service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 
-# Check for all services
-foreach ($ServiceName in $ServiceNames) {
-    $Service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-    if ($Service) {
-        Write-Output "Found service: $($Service.Name)"
-        $ServiceFound = $true
-        $ServicesToProcess += $Service
-    } else {
-        Write-Output "Service $ServiceName not found."
-    }
-}
-
-if ($ServiceFound) {
+if ($Service) {
+    Write-Output "Found service: $($Service.Name)"
     try {
         # Check if N-able software is installed by publisher
         $installed = Get-WmiObject -Class Win32_Product | Where-Object { 
@@ -81,36 +69,24 @@ if ($ServiceFound) {
         if ($installCheck) {
             Write-Output "Software uninstall failed. Attempting service force deletion..."
             
-            # Stop all services
-            $ServicesToProcess | ForEach-Object {
-                $_.Stop-Service -Force -ErrorAction SilentlyContinue
-            }
+            # Stop the service
+            $Service | Stop-Service -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 2
             
-            # Delete each service using sc.exe
-            foreach ($Service in $ServicesToProcess) {
-                $ServiceDeleteResult = & sc.exe delete $Service.Name 2>&1
-                Write-Output "Service delete output for $($Service.Name): $ServiceDeleteResult"
-            }
+            # Delete the service using sc.exe
+            $ServiceDeleteResult = & sc.exe delete $ServiceName 2>&1
+            Write-Output "Service delete output: $ServiceDeleteResult"
             
             Start-Sleep -Seconds 2
             
-            # Verify services are deleted
-            $AllDeleted = $true
-            foreach ($ServiceName in $ServiceNames) {
-                $IsServiceDeleted = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-                
-                if ($IsServiceDeleted) {
-                    Write-Output "Service $ServiceName still exists. Delete failed."
-                    $AllDeleted = $false
-                } else {
-                    Write-Output "Service $ServiceName forcibly deleted successfully."
-                }
-            }
+            # Verify service is deleted
+            $IsServiceDeleted = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
             
-            if ($AllDeleted) {
+            if (-not $IsServiceDeleted) {
+                Write-Output "Service $ServiceName forcibly deleted successfully."
                 Exit 0
             } else {
+                Write-Output "Service $ServiceName still exists. Delete failed."
                 Exit 1
             }
         } else {
@@ -118,11 +94,11 @@ if ($ServiceFound) {
             Exit 0
         }
     } catch {
-        Write-Output "Error occurred during processing: $_"
+        Write-Output "Error occurred while processing $($Service.Name): $_"
         Exit 1
     }
 } else {
-    Write-Output "None of the specified services were found."
+    Write-Output "Service $ServiceName not found."
     Exit 0
 }
 
