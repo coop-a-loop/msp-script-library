@@ -34,11 +34,19 @@ if ($rmm -ne 1) {
 
 Start-Transcript -Path $logPath
 
-# Define exact service name
-$ServiceName = "MspAgent"
+# Define service names
+$ServiceNames = @("MspAgent", "Windows Agent Service")
 
-# Get service with exact match
-$Service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+# Find the first service that exists
+$Service = $null
+foreach ($name in $ServiceNames) {
+    $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+    if ($svc) {
+        $Service = $svc
+        $ServiceName = $name
+        break
+    }
+}
 
 if ($Service) {
     Write-Output "Found service: $($Service.Name)"
