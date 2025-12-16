@@ -68,6 +68,11 @@ if ($Service) {
                 }    
             }
         }
+
+        # Remove Advanced Monitoring Agent with null vendor
+        if ($ServiceName = "Windows Agent Service") {
+            Get-WmiObject -Class Win32_Product -Filter "Name='Advanced Monitoring Agent'" | ForEach-Object { $_.Uninstall() }
+        }
         
         # Check if application is still installed
         $installCheck = Get-WmiObject -Class Win32_Product | Where-Object { 
